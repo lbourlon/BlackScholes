@@ -7,6 +7,9 @@ FetchContent_Declare(
   GIT_SHALLOW    TRUE
   TLS_VERIFY ${CMAKE_TLS_VERIFY}
 )
+set(BUILD_GTEST OFF)
+set(BUILD_GMOCK OFF)
+set(INSTALL_GTEST OFF)
 
 FetchContent_Declare(
   benchmark
@@ -15,12 +18,15 @@ FetchContent_Declare(
   GIT_SHALLOW    TRUE
   TLS_VERIFY ${CMAKE_TLS_VERIFY}
 )
-set(BENCHMARK_DOWNLOAD_DEPENDENCIES OFF)
+set(BENCHMARK_ENABLE_TESTING OFF)
 set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
+set(BENCHMARK_ENABLE_EXAMPLES OFF)
+set(BENCHMARK_DOWNLOAD_DEPENDENCIES OFF)
 
 FetchContent_MakeAvailable(googletest)
 FetchContent_MakeAvailable(benchmark)
 
+option(BUILD_TESTING "Build the tests" ON)
 add_subdirectory(unit)
 add_subdirectory(bench)
 
