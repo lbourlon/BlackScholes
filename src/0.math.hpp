@@ -12,11 +12,11 @@ inline auto abs(auto x) {return std::abs(x);}
 
 inline auto pi = 3.141'592'653'589'793;
 
-inline double integrate(std::function<double(double)> f, double min, double max) {
-    double intervals = 200'000;
-    double dx = (abs(max - min)) / intervals;
-    double sum = 0;
-    for (double x = min; x < max; x += dx) { sum += abs(dx * f(x)); }
+inline ftype integrate(std::function<ftype(ftype)> f, ftype min, ftype max) {
+    ftype intervals = 200'000;
+    ftype dx = (abs(max - min)) / intervals;
+    ftype sum = 0;
+    for (ftype x = min; x < max; x += dx) { sum += abs(dx * f(x)); }
     return sum;
 }
 
