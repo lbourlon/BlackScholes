@@ -1,43 +1,36 @@
 #include <cmath>
 #include <print>
-
-inline float ln(float x) { return std::log10(x);}
-inline float p2(float x) { return std::pow(x,2);}
-inline float sqrt(float x) { return std::sqrt(x);}
-inline float exp(float x) {return std::exp(x);}
-
-constexpr float pi = 3.1451592;
-
-float d1(float S, float K, float r, float sig, float tau) {
-    float A = ln(S/K) + tau * (r + (1/2) * p2(sig));
-    float B = sig * sqrt(tau);
-    return A / B;
-}
-
-float d2(float d1, float sig, float tau) {
-    return d1 - sig * std::sqrt(tau);
-}
-
-
-/**
- * The full Black Scholes model
- *
- * @param S : Stock price
- * @param K : Strike price
- * @param sig : volatility
- * @param r : risk-free interest rate
- * @param tau : time to maturity
- *
- * @returns the call price for the stock
- */
-float black_sholes_call(float S, float K, float sig, float r, float tau) {
-    return pi;
-}
-
+#include "_math.hpp"
+#include "bs.hpp"
+#include "bs_alt.hpp"
 
 
 
 int main() {
-    std::println("Hello World\n");
-    return 1;
+    ftype S = 300.0;
+    ftype K = 250.0;
+    ftype tau = 1;
+    ftype sig = 0.15;
+    ftype r = 0.03;
+
+    ftype call = black_scholes_call(S, K, sig, r, tau);
+    ftype put = black_scholes_put(S, K, r, tau, call);
+    std::println("Call: {}/58.81977, Put: {}/1.43116", call, put);
+
+    call = black_scholes_call_alt(S, K, sig, r, tau);
+    put = black_scholes_put_alt(S, K, r, tau, call);
+    std::println("Call: {}/58.81977, Put: {}/1.43116 [alt]", call, put);
+
+    S = 821.0;
+    K = 781.0;
+    tau = 3;
+    sig = 0.33;
+    r = 0.049;
+    call = black_scholes_call(S, K, sig, r, tau);
+    put = black_scholes_put(S, K, r, tau, call);
+    std::println("Call: {}/251.26628, Put: {}/104.40837", call, put);
+
+    call = black_scholes_call_alt(S, K, sig, r, tau);
+    put = black_scholes_put_alt(S, K, r, tau, call);
+    std::println("Call: {}/58.81977, Put: {}/1.43116 [alt]", call, put);
 }
