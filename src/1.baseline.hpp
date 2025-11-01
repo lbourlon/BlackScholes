@@ -1,29 +1,25 @@
 #pragma once
-#include "0.math.hpp"
 #include "0.common.hpp"
+#include "0.math.hpp"
 
 /**
  * Full Black Scholes model
  *
- * @param S : Stock price
- * @param K : Strike price
- * @param sig : volatility
- * @param r : risk-free interest rate
- * @param tau : time to maturity
+ * @param B : Stock price
  *
  * @returns BlackScholesResult
  */
-inline BlackScholesResult black_scholes(ftype S, ftype K, ftype sig, ftype r, ftype tau) {
+inline BsOutput black_scholes(BsInput in) {
     // calculate d1
-    ftype A = ln(S/K) + tau * (r + p2(sig)/2.0f);
-    ftype B = sig * sqrt(tau);
-    ftype d1 = A / B;
+    double A = ln(in.S / in.K) + in.tau * (in.r + p2(in.sig) / 2.0f);
+    double B = in.sig * sqrt(in.tau);
+    double d1 = A / B;
 
     // calculate d2
-    ftype d2 = d1 - sig * sqrt(tau);
+    double d2 = d1 - in.sig * sqrt(in.tau);
 
-    ftype call = S * N(d1) - N(d2) * K * e(-r * tau);
-    ftype put = K * e( -r * tau) - S + call;
+    double call = in.S * N(d1) - N(d2) * in.K * e(-in.r * in.tau);
+    double put = in.K * e(-in.r * in.tau) - in.S + call;
 
-    return {.call=call, .put=put};
+    return {.call = call, .put = put};
 }

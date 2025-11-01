@@ -1,15 +1,13 @@
-#include "gtest/gtest.h"
 #include "1.baseline.hpp"
+#include "gtest/gtest.h"
 
 TEST(FactorialTest, HandlesZeroInput) {
-    ftype S = 300.0;
-    ftype K = 250.0;
-    ftype tau = 1;
-    ftype sig = 0.15;
-    ftype r = 0.03;
+    const BsInput input = {
+        .S = 300.0, .K = 250.0, .tau = 1, .sig = 0.15, .r = 0.03,
+    };
 
-    BlackScholesResult res = black_scholes(S, K, sig, r, tau);
-    BlackScholesResult expected = {
+    BsOutput res = black_scholes(input);
+    BsOutput expected = {
         .call = 58.81977,
         .put = 1.43116,
     };
@@ -19,6 +17,6 @@ TEST(FactorialTest, HandlesZeroInput) {
 }
 
 int main(int argc, char **argv) {
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }
