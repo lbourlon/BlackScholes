@@ -19,8 +19,7 @@ endif()
 set(CMAKE_TLS_VERIFY TRUE)
 set(CMAKE_BUILD_TYPE Release)
 
-add_compile_options(-O3 -march=native)
-add_executable(blackscholes src/main.cpp)
+add_subdirectory(black_scholes)
 
 include(FetchContent)
 

@@ -1,5 +1,5 @@
-#include "1.baseline.hpp"
 #include "gtest/gtest.h"
+#include "black_scholes.hpp"
 
 TEST(FactorialTest, HandlesZeroInput) {
     const BsInput input = {

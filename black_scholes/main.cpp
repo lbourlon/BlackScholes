@@ -1,8 +1,7 @@
 #include <cmath>
 #include <print>
 
-#include "0.common.hpp"
-#include "1.baseline.hpp"
+#include "src/black_scholes.hpp"
 
 int main() {
     const BsInput input = {

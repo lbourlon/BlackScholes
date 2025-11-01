@@ -1,7 +1,6 @@
-#include "1.baseline.hpp"
-#include "2.bs_black76.hpp"
-#include "benchmark/benchmark.h"
 #include <random>
+#include "black_scholes.hpp"
+#include "benchmark/benchmark.h"
 
 // std::array<BsInput, 512>
 BsInput get_random_bs_input() {
@@ -20,24 +19,17 @@ BsInput get_random_bs_input() {
     };
 }
 
-static void BM_black_scholes(benchmark::State &state) {
+static void BM_black_scholes(benchmark::State &state, std::function<BsOutput(BsInput)> bs_implementation) {
     for (auto _ : state) {
         state.PauseTiming();
         const BsInput input = get_random_bs_input();
         state.ResumeTiming();
-        black_scholes(input);
+        bs_implementation(input);
     }
 }
 
-static void BM_black_scholes_alt(benchmark::State &state) {
-    for (auto _ : state) {
-        state.PauseTiming();
-        const BsInput input = get_random_bs_input();
-        state.ResumeTiming();
-        black_scholes_alt(input);
-    }
-}
 
-BENCHMARK(BM_black_scholes);
-BENCHMARK(BM_black_scholes_alt);
+BENCHMARK_CAPTURE(BM_black_scholes, baseline, black_scholes);
+BENCHMARK_CAPTURE(BM_black_scholes, bs_black76, black_scholes_alt);
+BENCHMARK_CAPTURE(BM_black_scholes, no_math, black_scholes_no_math);
 BENCHMARK_MAIN();

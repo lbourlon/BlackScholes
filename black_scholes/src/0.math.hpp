@@ -2,10 +2,11 @@
 #include <cmath>
 #include <functional>
 
+using std::exp;
+
 inline auto ln(auto x) { return std::log(x); }
 inline auto p2(auto x) { return std::pow(x, 2); }
 inline auto sqrt(auto x) { return std::sqrt(x); }
-inline auto e(auto x) { return std::exp(x); }
 inline auto abs(auto x) { return std::abs(x); }
 
 using std::numbers::pi;
@@ -28,7 +29,7 @@ inline double N(double val) {
     double min = -10.0;
     double max = val;
     double dx = 0.001;
-    auto f = [](const double &x) { return e(-p2(x) / 2.); };
+    auto f = [](const double &x) { return exp(-p2(x) / 2.); };
 
     double sum = 0.0f;
     // no need for abs(f(x)) because e(x) is always positive
@@ -48,7 +49,7 @@ inline double N_trap(double val) {
     double min = -10.0;
     double max = val;
     double dx = 0.001;
-    auto f = [](const double &x) { return e(-p2(x) / 2.); };
+    auto f = [](const double &x) { return exp(-p2(x) / 2.); };
 
     double sum = 0.0f;
     for (double x = min; x < max; x += dx) {

@@ -1,4 +1,3 @@
-#pragma once
 #include "0.common.hpp"
 #include "0.math.hpp"
 
@@ -8,8 +7,8 @@
  *
  * @returns BlackScholesResult
  */
-inline BsOutput black_scholes_alt(BsInput in) {
-    double D = e(-in.r * in.tau); // discount factor
+BsOutput black_scholes_alt(BsInput in) {
+    double D = exp(-in.r * in.tau); // discount factor
     double F = in.S / D;          // forward price factor
 
     // calculate d1
@@ -24,7 +23,7 @@ inline BsOutput black_scholes_alt(BsInput in) {
     double call = D * (N(d1) * F - N(d2) * in.K);
 
     // put
-    double put = in.K * e(-in.r * in.tau) - in.S + call;
+    double put = in.K * exp(-in.r * in.tau) - in.S + call;
 
     return {.call = call, .put = put};
 }
