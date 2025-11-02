@@ -1,12 +1,13 @@
 #include "gtest/gtest.h"
 #include "black_scholes.hpp"
 
-TEST(FactorialTest, HandlesZeroInput) {
-    const BsInput input = {
-        .S = 300.0, .K = 250.0, .tau = 1, .sig = 0.15, .r = 0.03,
-    };
+class BsImplem : public ::testing::TestWithParam<std::function<BsOutput(BsInput)>> { };
 
-    BsOutput res = black_scholes(input);
+TEST_P(BsImplem, TestCorrectness) {
+    const BsInput input = { .S = 300.0, .K = 250.0, .tau = 1, .sig = 0.15, .r = 0.03 };
+    auto bs_implem = GetParam();
+
+    BsOutput res = bs_implem(input);
     BsOutput expected = {
         .call = 58.81977,
         .put = 1.43116,
@@ -15,6 +16,10 @@ TEST(FactorialTest, HandlesZeroInput) {
     EXPECT_NEAR(expected.call, res.call, 0.00001);
     EXPECT_NEAR(expected.put, res.put, 0.00001);
 }
+
+INSTANTIATE_TEST_SUITE_P( , BsImplem,
+    ::testing::Values( black_scholes, black_scholes_alt, black_scholes_fast_math)
+);
 
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);

@@ -4,10 +4,15 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
    cmake_policy(SET CMP0135 NEW)
 endif()
 
-project(BlackScholes)
-
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+# set(CMAKE_C_COMPILER "gcc-14")
+# set(CMAKE_CXX_COMPILER "g++-14")
+
+# set(CMAKE_C_COMPILER "clang-18")
+# set(CMAKE_CXX_COMPILER "clang++-18")
+
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -18,6 +23,8 @@ endif()
 
 set(CMAKE_TLS_VERIFY TRUE)
 set(CMAKE_BUILD_TYPE Release)
+
+project(BlackScholes)
 
 add_subdirectory(black_scholes)
 

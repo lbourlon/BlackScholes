@@ -20,10 +20,10 @@ BsInput get_random_bs_input() {
 }
 
 static void BM_black_scholes(benchmark::State &state, std::function<BsOutput(BsInput)> bs_implementation) {
+    // state.PauseTiming();
+    // state.ResumeTiming();
+    const BsInput input = get_random_bs_input();
     for (auto _ : state) {
-        state.PauseTiming();
-        const BsInput input = get_random_bs_input();
-        state.ResumeTiming();
         bs_implementation(input);
     }
 }
@@ -31,5 +31,5 @@ static void BM_black_scholes(benchmark::State &state, std::function<BsOutput(BsI
 
 BENCHMARK_CAPTURE(BM_black_scholes, baseline, black_scholes);
 BENCHMARK_CAPTURE(BM_black_scholes, bs_black76, black_scholes_alt);
-BENCHMARK_CAPTURE(BM_black_scholes, no_math, black_scholes_no_math);
+BENCHMARK_CAPTURE(BM_black_scholes, fast_math, black_scholes_fast_math);
 BENCHMARK_MAIN();

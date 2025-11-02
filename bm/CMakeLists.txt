@@ -11,6 +11,7 @@ target_link_libraries(bm_black_scholes
   black_scholes
 )
 
-add_compile_options(bm_black_scholes -O3 -march=native)
+add_compile_options(-O3 -march=native -mavx2 -mavx)
+
 gtest_discover_tests(bm_black_scholes)
 add_test( NAME bench COMMAND bm_black_scholes --benchmark_min_time=0.1)
