@@ -124,7 +124,7 @@ constexpr double exp_taylor_expansion(double x) {
 
 // https://justinwillmert.com/articles/2020/numerically-computing-the-exponential-function-with-polynomial-approximations/#range-reduction
 constexpr double exp_reduced(double x) {
-    double k = floor(x * inv_ln2 + 0.5);
+    double k = floor(x * log2e + 0.5);
     double r = x - k * ln2;
 
     const double exp_reduced_taylor =
@@ -136,7 +136,7 @@ constexpr double exp_reduced(double x) {
 }
 
 constexpr double exp_reduced_fast(double x) {
-    const double k = static_cast<int>(x * log2e + 0.5);
+    const double k = static_cast<int>(x * log2e + std::copysign(0.5, x));
     const double r = x - k * ln2;
 
     const double exp_reduced_taylor =
@@ -148,7 +148,7 @@ constexpr double exp_reduced_fast(double x) {
 }
 
 constexpr double exp_reduced_const_array(double x) {
-    const double k = static_cast<int>(x * log2e + 0.5);
+    const double k = static_cast<int>(x * log2e + std::copysign(0.5, x));
     const double r = x - k * ln2;
 
     static constexpr std::array<double, 6> coeffs = {
