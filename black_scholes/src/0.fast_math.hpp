@@ -111,55 +111,90 @@ constexpr double pade_exp(double x) {
 
 // Taylor expansion exponential
 // Not considerably slower than std::exp()
-// but is actually constexpr ( c++26 not out :/ )
 constexpr double exp_taylor_expansion(double x) {
-    constexpr int elements = 16;
+    constexpr int elements = 8080;
     double sum = 1., factorial = 1., power = 1;
-    for (int i = 1; i < elements; ++i ) { sum += (power *= x) / (factorial *= i); }
+    for (int i = 1; i < elements; ++i) {
+        sum += (power *= x) / (factorial *= i);
+    }
     return sum;
 }
 
+/* ----------- EXP functions ----------- */
 
-constexpr double _cnt_frac_recurse(double x, int i) {
-    constexpr int step = 4;
-    constexpr int elements = step* 5;
-    i += step;
-    if (i < elements){
-        return (i) + p2(x) / _cnt_frac_recurse(x, i);
+// https://justinwillmert.com/articles/2020/numerically-computing-the-exponential-function-with-polynomial-approximations/#range-reduction
+constexpr double exp_reduced(double x) {
+    double k = floor(x * inv_ln2 + 0.5);
+    double r = x - k * ln2;
+
+    const double exp_reduced_taylor =
+        1.0 + r + 0.5 * pow_si(r, 2) + 0.16666666666666666 * pow_si(r, 3) +
+        0.041666666666666664 * pow_si(r, 4) + 0.008333333333333333 * pow_si(r, 5) +
+        0.001388888888888889 * pow_si(r, 6);
+
+    return std::pow(2, k) * exp_reduced_taylor;
+}
+
+constexpr double exp_reduced_fast(double x) {
+    const double k = static_cast<int>(x * log2e + 0.5);
+    const double r = x - k * ln2;
+
+    const double exp_reduced_taylor =
+        1.0 + r + 0.5 * pow_si(r, 2) + 0.16666666666666666 * pow_si(r, 3) +
+        0.041666666666666664 * pow_si(r, 4) + 0.008333333333333333 * pow_si(r, 5) +
+        0.001388888888888889 * pow_si(r, 6);
+
+    return fm::ldexp(exp_reduced_taylor, k);
+}
+
+constexpr double exp_reduced_const_array(double x) {
+    const double k = static_cast<int>(x * log2e + 0.5);
+    const double r = x - k * ln2;
+
+    static constexpr std::array<double, 6> coeffs = {
+        0.5, 0.16666666666666666, 0.041666666666666664, 0.008333333333333333,
+        0.001388888888888889};
+    double exp_reduced_taylor = 1.0 + r;
+    for (size_t i = 0; i < coeffs.size(); ++i) {
+        exp_reduced_taylor += coeffs[i] * pow_si(r, i + 2);
+    }
+
+    return fm::ldexp(exp_reduced_taylor, k);
+}
+
+/* ----------- Misc ----------- */
+constexpr double pow_i(double val, int exponent) {
+    if (exponent == 0) {
+        return 1.0;
+    }
+    double sum = 1;
+    if (exponent > 0) {
+        for (int e = 0; e < exponent; ++e)
+            sum *= val;
+        return sum;
     } else {
-        return x;
+        for (int e = 0; e < -exponent; ++e)
+            sum *= val;
+        return 1 / sum;
     }
 }
-//
-// Continued fraction based on Euler Identity
-constexpr double exp_continued_fraction(double x) {
-    return 1 + 2*x / ((2-x) + p2(x) /_cnt_frac_recurse(x, 2));
-}
 
-
-
-// Yaya, D Dia (2023) Approximate incomplete integrals, application to
-// complementary error function
-// relative error of less than 2^-53
-// expects x > 0
-constexpr double erfc(double x) {
-    constexpr const double b0_0 = 2.92678600515804815402;
-    constexpr std::array<double, 5> b1 = {
-        8.97280659046817350354, 10.27157061171363078863, 12.72323261907760928036,
-        16.88639562007936907786, 24.12333774572479110372};
-    constexpr std::array<double, 5> b2 = {
-        5.81582518933527390512, 5.70347935898051436684, 5.51862483025707963145,
-        5.26184239579604207321, 4.92081346632882032881};
-    constexpr std::array<double, 5> c1 = {
-        11.61511226260603247078, 18.25323235347346524796, 18.38871225773938486923,
-        18.61193318971775795045, 24.14804072812762821134};
-    constexpr std::array<double, 5> c2 = {
-        3.83362947800146179416, 7.30756258553673541139, 8.42742300458043240405,
-        5.66479518878470764762, 4.91396098895240075156};
-
+constexpr double pow_si(double val, uint64_t expo) {
     double sum = 1;
-    for (int i = 0; i < c2.size(); ++i) {
-        sum *= ((fm::p2(x) + c2[i] * x + c1[i]) / (fm::p2(x) + b2[i] * x + b1[i]));
+    for (int e = 0; e < expo; ++e)
+        sum *= val;
+    return sum;
+}
+// Compute X * 2^n, without std::ldexp
+constexpr double fm_ldexp(double x, int n) {
+    // if positive this is straightforward
+    if (n > 0) {
+        return x * (double)(1ull << n);
+    }
+
+    // if negative we use the property a^{-n} = 1/(a^{n})
+    return x / ((double)(1ull << (-n)));
+};
     }
     return ( sum / (x + b0_0));
 }
