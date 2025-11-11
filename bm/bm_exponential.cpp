@@ -7,14 +7,11 @@ static void BM_exponential(benchmark::State &state, std::function<double(double)
     std::uniform_real_distribution<double> rand_gen(-10'000, 10'000);
     std::default_random_engine re;
 
+    double x = rand_gen(re);
     for (auto _ : state) {
-
-        double x = rand_gen(re); // <- bias upwards but improves reproducibility
         benchmark::DoNotOptimize(func_impl(x));
     }
 }
-
-// constexpr size_t iter = 2'000;
 
 
 BENCHMARK_CAPTURE(BM_exponential, std_exp, fm::exp_std);
