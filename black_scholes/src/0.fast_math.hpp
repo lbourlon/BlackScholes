@@ -18,12 +18,6 @@ using std::numbers::ln2;
 constexpr uint64_t double_sign_bit = 0x8000000000000000;
 constexpr uint64_t double_exponent_bits = 0x7ff0000000000000;
 constexpr uint64_t double_mantissa_bits = 0x000fffffffffffff;
-// f32: 1bit, 8bits, 23bits
-union double_as_uint {
-    double _float;
-    uint64_t _int;
-};
-namespace fm {
 
 constexpr double p2(double x) { return x * x; }
 constexpr double p3(double x) { return x * x * x; }
@@ -200,14 +194,14 @@ constexpr double pow_si(double val, uint64_t expo) {
     return sum;
 }
 // Compute X * 2^n, without std::ldexp
-constexpr double fm_ldexp(double x, int n) {
+constexpr double fm_ldexp(double x, int64_t n) {
     // if positive this is straightforward
     if (n > 0) {
-        return x * (double)(1ull << n);
+        return x * static_cast<double>(1ull << n);
     }
 
     // if negative we use the property a^{-n} = 1/(a^{n})
-    return x / ((double)(1ull << (-n)));
+    return x / static_cast<double>(1ull << (-n));
 };
 /* ----------- LN functions ----------- */
 
@@ -246,7 +240,7 @@ constexpr double ln_mercator(double a) {
 // https://math.stackexchange.com/questions/3381629/what-is-the-fastest-algorithm-for-finding-the-natural-logarithm-of-a-big-number
 // ln(a * 2n) = ln(a) + n * ln(2)
 constexpr double ln_power_of_2(double x) {
-    double_as_uint du = {._float = x};
+    // const auto guess = std::bit_cast<double, uint64_t>(x);
 
     static constexpr int64_t _10bits = 0x3ffuLL; // (2^p)-1
 
@@ -254,23 +248,26 @@ constexpr double ln_power_of_2(double x) {
     // exponent by subbing the exponent bias from the result (1023 for doubles)
     // https://en.wikipedia.org/wiki/Floating-point_arithmetic#Internal_representation
     // Also not out the sign bit
-    const int64_t extracted_exponent = ((du._int & double_exponent_bits) >> 52) - 1023;
+    const int64_t exponent =
+        ((std::bit_cast<uint64_t, double>(x) & double_exponent_bits) >> 52) - 1023ull;
 
     // Then to factor the mantissa out we zero-out non-mantissa bits
-    int64_t factor_mantissa_out = du._int & double_mantissa_bits;
     // And we set the mantissa to be 1023, such that we have 2^0
     // https://en.wikipedia.org/wiki/Double-precision_floating-point_format#Exponent_encoding
-    du._int = factor_mantissa_out | (_10bits << 52);
+    const uint64_t mantissa =
+        ((std::bit_cast<uint64_t, double>(x) & double_mantissa_bits) | (_10bits << 52));
 
-    const double a = du._float - 1.0;
+    const double a = std::bit_cast<double, uint64_t>(mantissa) - 1.0;
 
     // Mercator series for ln(a), with only one factor no more factors not really required
     // for the precision I want
     const double ln_a = a - 0.5 * pow_si(a, 2);
 
     // Solve the new equation
-    return ln_a + extracted_exponent * ln2;
+    return ln_a + exponent * ln2;
 }
+// Note: factoring for power of 10 `ln(a*10n)=ln(a)+n*ln(10)` actually makes no
+// sense in my mind, given I already expect |x| < 10
 
 // Because x is so small and we have a pretty fast sqrt approximation
 // using the property ln(x) = 2 * ln(sqrt(x)
@@ -320,9 +317,8 @@ constexpr double sqrt_newton_raphson(double x) {
 // Though from my needs this seems unneeded, this approach seems was used
 // This allows me to only do one newton-raphson step
 constexpr double sqrt_kahan_ng(double x) {
-    double_as_uint du = {._float = x};
-    du._int = (du._int >> 1) + (1023ull << 51);
-    double guess = du._float;
+    const auto guess_int = (std::bit_cast<uint64_t, double>(x) >> 1) + (1023ull << 51);
+    const auto guess = std::bit_cast<double, uint64_t>(guess_int);
     return (guess + x / guess) * 0.5;
 }
 
