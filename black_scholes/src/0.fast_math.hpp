@@ -1,9 +1,17 @@
 #pragma once
+#include <bit>
+#include <utility>
+#define bs_inline inline __attribute__((always_inline))
 
+#include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
+#include <emmintrin.h>
+#include <immintrin.h>
 #include <numbers>
-#include <array>
+#include <print>
+#include <xmmintrin.h>
 
 using std::numbers::e;
 using std::numbers::ln2;
@@ -15,21 +23,21 @@ constexpr double inv_sqrt_2pi = 1. / sqrt_2pi;
 using std::numbers::ln10;
 using std::numbers::ln2;
 
+// f64: 1bit, 11bits, 52bits                 s<-e-><---m---->
 constexpr uint64_t double_sign_bit = 0x8000000000000000;
 constexpr uint64_t double_exponent_bits = 0x7ff0000000000000;
 constexpr uint64_t double_mantissa_bits = 0x000fffffffffffff;
 
+namespace fm {
 constexpr double p2(double x) { return x * x; }
 constexpr double p3(double x) { return x * x * x; }
 
-constexpr double pad_exp(double x); //imprecise
-constexpr double exp_taylor_expansion(double x);
-constexpr double exp_continued_fraction(double x);
-constexpr double exp_polynomial(double x);
-constexpr double exp_test(double x);
-constexpr double exp(double x) { return std::exp(x); }
-// constexpr double exp(double x) { return std::exp(x); }
-
+constexpr double exp_reduced(double x);
+constexpr double exp_reduced_fast(double x);
+constexpr double exp_reduced_const_array(double x);
+constexpr double exp_std(double x) { return std::exp(x); }
+constexpr double exp_reduced_fast_branchless(double x);
+constexpr double exp(double x) { return exp_reduced_fast(x); }
 
 constexpr double ln_newton_halley(double x);
 constexpr double ln_newton_halley_fast(double x); // not any faster than st:ln
@@ -37,13 +45,8 @@ constexpr double ln_power_of_2(double x);         // Fast generalist implem
 constexpr double ln_mercator(double x);           // Domain specific optimization
 constexpr double ln_sqrt2(double x);              // Just a test, but works lol
 constexpr double ln_sqrt2_twice(double x);        // This actually dumb
-constexpr double ln(double x) { return ln_mercator(x); }
+constexpr double ln(double x) { return ln_power_of_2(x); }
 constexpr double ln_std(double x) { return std::log(x); }
-    }
-    return yn1;
-}
-// inline double ln(double x) { return std::log(x); }
-inline double ln(double x) { return ln_fracs(x); }
 
 constexpr double sqrt_exp_ln(double x);
 constexpr double sqrt_pow_ln(double x);
@@ -52,23 +55,32 @@ constexpr double sqrt_kahan_ng(double x);
 constexpr double sqrt_std(double x) { return std::sqrt(x); }
 constexpr double sqrt(double x) { return sqrt_kahan_ng(x); }
 
-constexpr double N_marsaglia(double x); // slowest
+constexpr double N_marsaglia(double x);        // slowest
 constexpr double N_taylor_expansion(double x); // close second
-constexpr double N_zelen_severo(double x); // fastest
+constexpr double N_zelen_severo(double x);     // fastest
 constexpr double N(double x) { return N_zelen_severo(x); }
+constexpr double N_no_std_math(double x) { return N_zelen_severo(x); }
 
+constexpr double ldexp_branchless(double x, int64_t n);
+constexpr double fm_ldexp(double x, int64_t n);
+constexpr double ldexp(double x, int64_t n) { return ldexp_branchless(x, n); };
 
-constexpr double pow_i(double val, uint16_t exponent);
+constexpr double pow_i(double val, int exponent);
+constexpr double pow_si(double val, uint64_t expo);
 
 /* ----------- Normal Distribution funcs ----------- */
 
-// Standard normal probability density function
+// Standard normal distribution
 // Small phi not to be confused with Big Phi (which I'm notating as N);
-constexpr double phi(const double x) { return fm::exp(-0.5 * p2(x)) / sqrt_2pi; }
+// constexpr double phi(const double x) { return fm::exp(-0.5 * p2(x)) * inv_sqrt_2pi; }
+constexpr double phi(const double x) { return fm::exp(-p2(x) * 0.5) * inv_sqrt_2pi; }
+constexpr double std_math_phi(const double x) {
+    return std::exp(-0.5 * std::pow(x, 2)) * inv_sqrt_2pi;
+}
 
 // Source : George Marsaglia (2004). "Evaluating the Normal Distribution"
-// Modified from original implementation to
-// Slower than Zelen & Severo
+// Modified from original implementation to have variable error not
+// based on float()= comparition
 constexpr double N_marsaglia(double x) {
     constexpr double error = 0.000025;
     double s = x, t = 0, b = x, q = x * x, i = 1;
@@ -81,13 +93,12 @@ constexpr double N_marsaglia(double x) {
     return .5 + s * fm::exp(-.5 * x * x - .91893853320467274178L);
 }
 
-// Also based  on the George Marsaglia paper.
-// Seems to be faster for the precision level I'm going for
-// no dependency on exp function
+// Based  on the George Marsaglia paper.
+// Faster than the one in the for my given precision needs
 constexpr double N_taylor_expansion(double x) {
     if (x < 0.0)
         return 1.0 - N_taylor_expansion(-x);
-    constexpr int elements = 22;
+    constexpr int elements = 32;
     double sum = x, factorial = 1., power = x;
     for (int i = 3; i < elements; i += 2) {
         sum += (power *= (x * x)) / (factorial *= i);
@@ -98,34 +109,47 @@ constexpr double N_taylor_expansion(double x) {
 // Zelen & Severo (1964); error |ε(x)| < 7.5·10−8
 // see https://personal.math.ubc.ca/~cbm/aands/page_932.htm
 constexpr double N_zelen_severo(double x) {
-    using fm::pow_i;
-    if (x < 0.0) return 1.0 - N(-x);
+    if (x < 0.0)
+        return 1.0 - N_zelen_severo(-x);
     const double t = 1. / (1. + 0.23164'19 * x);
-    return 1. - fm::phi(x)*(t * 0.31938'1530 + pow_i(t, 2) * -0.35656'3782 +
-                       pow_i(t, 3) * 1.78147'7937 + pow_i(t, 4) * -1.82125'5978 +
-                       pow_i(t, 5) * 1.33027'4429);
+    return 1. - fm::std_math_phi(x) *
+                    (t * 0.31938'1530 + pow_i(t, 2) * -0.35656'3782 +
+                     pow_i(t, 3) * 1.78147'7937 + pow_i(t, 4) * -1.82125'5978 +
+                     pow_i(t, 5) * 1.33027'4429);
 }
 
-
-/* ----------- EXP functions ----------- */
-
-// https://mathworld.wolfram.com/PadeApproximant.html
-constexpr double pade_exp(double x) {
-    using fm::p2;
-    using fm::p3;
-    return  (120 + 60*x + 12* p2(x) + p3(x))
-            /(120 - 60*x + 12* p2(x) - p3(x)) ;// e_3_3
+constexpr double N_zelen_severo_fast_math(double x) {
+    if (x < 0.0)
+        return 1.0 - N_zelen_severo(-x);
+    const double t = 1. / (1. + 0.23164'19 * x);
+    return 1. - fm::phi(x) * (t * 0.31938'1530 + pow_i(t, 2) * -0.35656'3782 +
+                              pow_i(t, 3) * 1.78147'7937 + pow_i(t, 4) * -1.82125'5978 +
+                              pow_i(t, 5) * 1.33027'4429);
 }
 
-// Taylor expansion exponential
-// Not considerably slower than std::exp()
-constexpr double exp_taylor_expansion(double x) {
-    constexpr int elements = 8080;
-    double sum = 1., factorial = 1., power = 1;
-    for (int i = 1; i < elements; ++i) {
-        sum += (power *= x) / (factorial *= i);
-    }
-    return sum;
+constexpr bs_inline double N_zelen_severo_branchless(double x) {
+    // lambda explicitly avoid recursion step
+    auto N_lambda = [](double x) {
+        const double t = 1. / (1. + 0.23164'19 * x);
+        return 1. -
+               fm::phi(x) * (t * 0.31938'1530 + pow_si(t, 2) * -0.35656'3782 +
+                             pow_si(t, 3) * 1.78147'7937 + pow_si(t, 4) * -1.82125'5978 +
+                             pow_si(t, 5) * 1.33027'4429);
+    };
+
+    // This is to account for the fact that I want to have
+    // The approximation abofe requires x > 0; i that's not the case I need
+    // take benefit of the property N(x) = 1 - N(-x)
+    //
+    // To avoid a branch on :
+    // if x > 0 : N(x)
+    // if x < 0 : 1 - N(-x)
+    //
+    // We instead:
+    double y = N_lambda(std::fabs(x)); // f(|x|)
+    // 0.0 if x>=0, -1.0 if x<0
+    double mask = -static_cast<double>(std::signbit(x));
+    return y + mask * (1.0 - 2.0 * y);
 }
 
 /* ----------- EXP functions ----------- */
@@ -203,6 +227,22 @@ constexpr double fm_ldexp(double x, int64_t n) {
     // if negative we use the property a^{-n} = 1/(a^{n})
     return x / static_cast<double>(1ull << (-n));
 };
+
+// This actually seems to be slower, than my fm::ldexp just above
+// Either the branchless optimisations the compiler is doing are better than
+// mine or the added cost of extra instruction is not worth the trade-off
+constexpr double ldexp_branchless(double x, int64_t n) {
+
+    // flip n to always be positive for the exponent via shit to be ok
+    const int64_t abs_n = n & ~std::bit_cast<int64_t, uint64_t>(double_sign_bit);
+
+    // calculate exponent
+    const auto exponent = static_cast<double>(1ull << abs_n);
+
+    // calculate both versions and null out the wrong one
+    return x * ((n > 0) * exponent + (n <= 0) / exponent);
+};
+
 /* ----------- LN functions ----------- */
 
 // Converges very fast, but is too slow and depends on exp
