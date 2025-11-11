@@ -51,9 +51,12 @@ constexpr double ln_std(double x) { return std::log(x); }
 // inline double ln(double x) { return std::log(x); }
 inline double ln(double x) { return ln_fracs(x); }
 
-constexpr double sqrt_expln(double x) { return fm::exp(fm::ln(x)/2.);  }
-constexpr double sqrt_pln(double x) { return std::pow(10, ln(x))/2.; }
-inline double sqrt(double x) {return sqrt_expln(x);}
+constexpr double sqrt_exp_ln(double x);
+constexpr double sqrt_pow_ln(double x);
+constexpr double sqrt_newton_raphson(double x);
+constexpr double sqrt_kahan_ng(double x);
+constexpr double sqrt_std(double x) { return std::sqrt(x); }
+constexpr double sqrt(double x) { return sqrt_kahan_ng(x); }
 
 constexpr double N_marsaglia(double x); // slowest
 constexpr double N_taylor_expansion(double x); // close second
@@ -289,6 +292,38 @@ constexpr double ln_sqrt2(double x) {
 // Stems from the same reason that ln_mercator() works as is, S/K should be small
 // https://math.stackexchange.com/questions/3381629/what-is-the-fastest-algorithm-for-finding-the-natural-logarithm-of-a-big-number
 constexpr double ln_sqrt2_twice(double x) { return 4 * (fm::sqrt(fm::sqrt(x)) - 1.0); }
+
+/* ----------- Sqrt functions ----------- */
+
+constexpr double sqrt_exp_ln(double x) { return fm::exp(fm::ln_std(x) / 2.); }
+constexpr double sqrt_pow_ln(double x) { return std::pow(10, ln(x)) / 2.; }
+
+
+// Newton(/Raphson)  Square Method
+// S.G. Johnson (2015) Square Roots via Newton’s Method
+// https://math.mit.edu/~stevenj/18.335/newton-sqrt.pdf
+constexpr double sqrt_newton_raphson(double x) {
+    double guess = x;
+    static constexpr size_t guess_count = 5;
+
+    for (size_t i = 0; i < guess_count; ++i) {
+        double g = (guess + x / guess) * 0.5;
+        guess = g;
+    }
+    return guess;
+}
+
+// From an unpublished "paper by Prof W. Kahan and K.C. Ng, written in May, 1986"
+// I could not find an official source for the paper beyond
+// https://www.netlib.org/fdlibm/e_sqrt.c
+// The extract also mentions the use of the following correction table
+// Though from my needs this seems unneeded, this approach seems was used
+// This allows me to only do one newton-raphson step
+constexpr double sqrt_kahan_ng(double x) {
+    double_as_uint du = {._float = x};
+    du._int = (du._int >> 1) + (1023ull << 51);
+    double guess = du._float;
+    return (guess + x / guess) * 0.5;
 }
 
 } // namespace fm

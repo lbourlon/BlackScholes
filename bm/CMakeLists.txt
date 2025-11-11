@@ -20,3 +20,5 @@ endfunction()
 
 create_benchmark(bm_black_scholes)
 create_benchmark(bm_exponential)
+create_benchmark(bm_ln)
+create_benchmark(bm_sqrt)
