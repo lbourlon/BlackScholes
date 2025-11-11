@@ -9,6 +9,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# set(CMAKE_C_COMPILER "gcc-14")
+# set(CMAKE_CXX_COMPILER "g++-14")
+
+set(CMAKE_C_COMPILER "clang-18")
+set(CMAKE_CXX_COMPILER "clang++-18")
+
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)

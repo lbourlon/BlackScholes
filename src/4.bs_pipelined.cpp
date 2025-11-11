@@ -10,8 +10,8 @@
  */
 BsOutput black_scholes_pipelined(BsInput in) {
     // calculate d1
-    const double A = fm::ln(in.S / in.K) + in.tau * (in.r + fm::p2(in.sig) / 2.0f);
-    const double B = in.sig * sqrt(in.tau);
+    const double A = fm::log(in.S / in.K) + in.tau * (in.r + fm::pow_si(in.sig,2) / 2.0f);
+    const double B = in.sig * fm::sqrt(in.tau);
     const double d1 = A / B;
 
     // calculate d2

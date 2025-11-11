@@ -59,3 +59,17 @@ $$
 * N($d_1$) and N($d_2$) are cumulative distribution functions of the standard normal distribution
 with
 
+## Benchmarks
+
+Temporary score
+
+```
+-------------------------------------------------------------------------------------------------
+Benchmark                                                       Time             CPU   Iterations
+-------------------------------------------------------------------------------------------------
+BM_black_scholes/baseline                                 1312804 ns      1312524 ns          527
+BM_black_scholes/nuperical_approx_N/iterations:2000000       41.1 ns         41.1 ns      2000000
+BM_black_scholes/fast_math/iterations:2000000                28.8 ns         28.8 ns      2000000
+BM_black_scholes/pipelined/iterations:2000000                26.9 ns         26.9 ns      2000000
+BM_black_scholes/simd_oriented/iterations:2000000            22.3 ns         22.3 ns      2000000
+```

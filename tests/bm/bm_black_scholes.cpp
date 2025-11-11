@@ -25,9 +25,10 @@ static void BM_black_scholes(benchmark::State &state, std::function<BsOutput(BsI
 }
 
 
-constexpr size_t iter = 1848211;
+constexpr size_t iter = 2000000;
 BENCHMARK_CAPTURE(BM_black_scholes, baseline, black_scholes);
 BENCHMARK_CAPTURE(BM_black_scholes, nuperical_approx_N, black_scholes_numerical_approx_N)->Iterations(iter);
 BENCHMARK_CAPTURE(BM_black_scholes, fast_math, black_scholes_fast_math)->Iterations(iter);
 BENCHMARK_CAPTURE(BM_black_scholes, pipelined, black_scholes_pipelined)->Iterations(iter);
+BENCHMARK_CAPTURE(BM_black_scholes, simd_oriented, black_scholes_simd_oriented)->Iterations(iter);
 BENCHMARK_MAIN();

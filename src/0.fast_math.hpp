@@ -38,15 +38,16 @@ constexpr double exp_reduced_const_array(double x);
 constexpr double exp_std(double x) { return std::exp(x); }
 constexpr double exp_reduced_fast_branchless(double x);
 constexpr double exp(double x) { return exp_reduced_fast(x); }
+// constexpr double exp_simd(double x) { return exp_reduced_fast(x); }
 
-constexpr double ln_newton_halley(double x);
-constexpr double ln_newton_halley_fast(double x); // not any faster than st:ln
-constexpr double ln_power_of_2(double x);         // Fast generalist implem
-constexpr double ln_mercator(double x);           // Domain specific optimization
-constexpr double ln_sqrt2(double x);              // Just a test, but works lol
-constexpr double ln_sqrt2_twice(double x);        // This actually dumb
-constexpr double ln(double x) { return ln_power_of_2(x); }
-constexpr double ln_std(double x) { return std::log(x); }
+constexpr double log_newton_halley(double x);
+constexpr double log_newton_halley_fast(double x); // not any faster than st:ln
+constexpr double log_power_of_2(double x);         // Fast generalist implem
+constexpr double log_mercator(double x);           // Domain specific optimization
+constexpr double log_sqrt2(double x);              // Just a test, but works lol
+constexpr double log_sqrt2_twice(double x);        // This actually dumb
+constexpr double log(double x) { return log_power_of_2(x); }
+constexpr double log_std(double x) { return std::log(x); }
 
 constexpr double sqrt_exp_ln(double x);
 constexpr double sqrt_pow_ln(double x);
@@ -58,6 +59,8 @@ constexpr double sqrt(double x) { return sqrt_kahan_ng(x); }
 constexpr double N_marsaglia(double x);        // slowest
 constexpr double N_taylor_expansion(double x); // close second
 constexpr double N_zelen_severo(double x);     // fastest
+// constexpr double N_zelen_severo_branchless(double x);     // fastest
+// constexpr std::pair<double,double> N_zelen_severo_branchless_simd(double x);     // fastest
 constexpr double N(double x) { return N_zelen_severo(x); }
 constexpr double N_no_std_math(double x) { return N_zelen_severo(x); }
 
@@ -129,7 +132,7 @@ constexpr double N_zelen_severo_fast_math(double x) {
 
 constexpr bs_inline double N_zelen_severo_branchless(double x) {
     // lambda explicitly avoid recursion step
-    auto N_lambda = [](double x) {
+    static constexpr auto N_lambda = [](double x) {
         const double t = 1. / (1. + 0.23164'19 * x);
         return 1. -
                fm::phi(x) * (t * 0.31938'1530 + pow_si(t, 2) * -0.35656'3782 +
@@ -152,6 +155,70 @@ constexpr bs_inline double N_zelen_severo_branchless(double x) {
     return y + mask * (1.0 - 2.0 * y);
 }
 
+constexpr std::pair<double,double> N_zelen_severo_branchless_simd(double x1, double x2) {
+    const double x1_abs = std::fabs(x1);
+    const double x2_abs = std::fabs(x2);
+
+    double t1 = 0.23164'19;
+    double t2 = 0.23164'19;
+
+    t1 *= x1_abs;
+    t2 *= x2_abs;
+
+    t1 += 1.;
+    t2 += 1.;
+
+    t1 = 1. / t1;
+    t2 = 1. / t2;
+
+    double taylor_1 = t1 * 0.31938'1530;
+    double taylor_2 = t2 * 0.31938'1530;
+
+    const double t1_p2 = t1 * t1;
+    const double t2_p2 = t2 * t2;
+    taylor_1 -= t1_p2 * 0.35656'3782;
+    taylor_2 -= t2_p2 * 0.35656'3782;
+
+    const double t1_p3 = t1_p2 * t1;
+    const double t2_p3 = t2_p2 * t2;
+    taylor_1 += t1_p3 * 1.78147'7937;
+    taylor_2 += t2_p3 * 1.78147'7937;
+
+    const double t1_p4 = t1_p3 * t1;
+    const double t2_p4 = t2_p3 * t2;
+    taylor_1 -= t1_p4 * 1.82125'5978;
+    taylor_2 -= t2_p4 * 1.82125'5978;
+
+    const double t1_p5 = t1_p4 * t1;
+    const double t2_p5 = t2_p4 * t2;
+    taylor_1 += t1_p5 * 1.33027'4429;
+    taylor_2 += t2_p5 * 1.33027'4429;
+
+
+    double phi_1 = -fm::p2(x1_abs) * 0.5;
+    double phi_2 = -fm::p2(x2_abs) * 0.5;
+
+    phi_1 = fm::exp(phi_1);
+    phi_2 = fm::exp(phi_2);
+
+    phi_1 *= inv_sqrt_2pi;
+    phi_2 *= inv_sqrt_2pi;
+
+    double y1 = 1.;
+    double y2 = 1.;
+
+    y1 -= phi_1 * taylor_1;
+    y2 -= phi_2 * taylor_2;
+
+
+    const double mask1 = -static_cast<double>(std::signbit(x1));
+    const double mask2 = -static_cast<double>(std::signbit(x2));
+
+    const double res_1 = y1 + mask1 * (1.0 - 2.0 * y1);
+    const double res_2 = y2 + mask2 * (1.0 - 2.0 * y2);
+    return std::make_pair(res_1, res_2);
+}
+
 /* ----------- EXP functions ----------- */
 
 // https://justinwillmert.com/articles/2020/numerically-computing-the-exponential-function-with-polynomial-approximations/#range-reduction
@@ -164,7 +231,8 @@ constexpr double exp_reduced(double x) {
         0.041666666666666664 * pow_si(r, 4) + 0.008333333333333333 * pow_si(r, 5) +
         0.001388888888888889 * pow_si(r, 6);
 
-    return std::pow(2, k) * exp_reduced_taylor;
+    return fm::ldexp(exp_reduced_taylor, k);
+    // return std::pow(2, k) * exp_reduced_taylor;
 }
 
 constexpr double exp_reduced_fast(double x) {
@@ -228,26 +296,17 @@ constexpr double fm_ldexp(double x, int64_t n) {
     return x / static_cast<double>(1ull << (-n));
 };
 
-// This actually seems to be slower, than my fm::ldexp just above
-// Either the branchless optimisations the compiler is doing are better than
-// mine or the added cost of extra instruction is not worth the trade-off
 constexpr double ldexp_branchless(double x, int64_t n) {
-
-    // flip n to always be positive for the exponent via shit to be ok
-    const int64_t abs_n = n & ~std::bit_cast<int64_t, uint64_t>(double_sign_bit);
-
-    // calculate exponent
-    const auto exponent = static_cast<double>(1ull << abs_n);
-
-    // calculate both versions and null out the wrong one
-    return x * ((n > 0) * exponent + (n <= 0) / exponent);
+    const double exp = static_cast<double>(1ull << abs(n));
+    if (std::signbit(n)) { return x / exp; }
+    return x * exp;
 };
 
 /* ----------- LN functions ----------- */
 
 // Converges very fast, but is too slow and depends on exp
 // https://en.wikipedia.org/wiki/Natural_logarithm#High_precision
-constexpr double ln_newton_halley(double x) {
+constexpr double log_newton_halley(double x) {
     constexpr int elements = 2; // converges insanely fast
     double yn = x;
     double yn1 = 0;
@@ -258,7 +317,7 @@ constexpr double ln_newton_halley(double x) {
     return yn1;
 }
 
-constexpr double ln_newton_halley_fast(double x) {
+constexpr double log_newton_halley_fast(double x) {
     double yn1 = x + 2 * (x - fm::exp(x)) / (x + fm::exp(x));
     return yn1 + 2 * (x - fm::exp(yn1)) / (x + fm::exp(yn1));
 }
@@ -268,7 +327,7 @@ constexpr double ln_newton_halley_fast(double x) {
 // Precision is yet to be measured, however, its clearly faster than its bigger
 // brother right after
 // https://en.wikipedia.org/wiki/Mercator_series
-constexpr double ln_mercator(double a) {
+constexpr double log_mercator(double a) {
     a -= 1;
     return a - 0.5 * pow_si(a, 2) + 0.3333333333333333 * pow_si(a, 3) -
            0.25 * pow_si(a, 4) + 0.2 * pow_si(a, 5);
@@ -279,7 +338,7 @@ constexpr double ln_mercator(double a) {
 // https://en.wikipedia.org/wiki/Natural_logarithm#Natural_logarithm_of_10
 // https://math.stackexchange.com/questions/3381629/what-is-the-fastest-algorithm-for-finding-the-natural-logarithm-of-a-big-number
 // ln(a * 2n) = ln(a) + n * ln(2)
-constexpr double ln_power_of_2(double x) {
+constexpr double log_power_of_2(double x) {
     // const auto guess = std::bit_cast<double, uint64_t>(x);
 
     static constexpr int64_t _10bits = 0x3ffuLL; // (2^p)-1
@@ -312,8 +371,8 @@ constexpr double ln_power_of_2(double x) {
 // Because x is so small and we have a pretty fast sqrt approximation
 // using the property ln(x) = 2 * ln(sqrt(x)
 // We can compute ln_a with a shorter mercator series
-// Stems from the same reason that ln_mercator() works as is, S/K should be small
-constexpr double ln_sqrt2(double x) {
+// Stems from the same reason that log_mercator() works as is, S/K should be small
+constexpr double log_sqrt2(double x) {
     const double a = fm::sqrt(x) - 1.0;
 
     // Mercator series for ln(a), more factors not really required for the precision I
@@ -326,14 +385,14 @@ constexpr double ln_sqrt2(double x) {
 
 // This is so dumb (kinda works™)
 // Same thing as the last one, but no mercator
-// Stems from the same reason that ln_mercator() works as is, S/K should be small
+// Stems from the same reason that log_mercator() works as is, S/K should be small
 // https://math.stackexchange.com/questions/3381629/what-is-the-fastest-algorithm-for-finding-the-natural-logarithm-of-a-big-number
-constexpr double ln_sqrt2_twice(double x) { return 4 * (fm::sqrt(fm::sqrt(x)) - 1.0); }
+constexpr double log_sqrt2_twice(double x) { return 4 * (fm::sqrt(fm::sqrt(x)) - 1.0); }
 
 /* ----------- Sqrt functions ----------- */
 
-constexpr double sqrt_exp_ln(double x) { return fm::exp(fm::ln_std(x) / 2.); }
-constexpr double sqrt_pow_ln(double x) { return std::pow(10, ln(x)) / 2.; }
+constexpr double sqrt_exp_ln(double x) { return fm::exp(fm::log_std(x) / 2.); }
+constexpr double sqrt_pow_ln(double x) { return std::pow(10, log(x)) / 2.; }
 
 
 // Newton(/Raphson)  Square Method

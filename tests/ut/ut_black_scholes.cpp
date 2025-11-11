@@ -18,7 +18,7 @@ BsInput get_random_bs_input() {
     std::uniform_real_distribution<double> tau(0, 20);
 
     double spot_price = price(rng);
-    double strike_price = spot_price + variation(rng) * spot_price/2.0;
+    double strike_price = spot_price + variation(rng) * spot_price / 2.0;
     return {
         strike_price, spot_price, tau(rng), percentage(rng), percentage(rng),
     };
@@ -58,7 +58,6 @@ TEST_P(RandomizedControl, WithControlFunc) {
         double error = std::abs(expected_spread - computed_spread);
         double absolute_err = 1.1e-3;
 
-
         if (error > absolute_err) {
             std::println("============= BAD SPREAD ==============");
             std::println("Iteration {} errored:", i);
@@ -69,10 +68,10 @@ TEST_P(RandomizedControl, WithControlFunc) {
             std::println("Expected output {}", expected);
             std::println("Computed output {}\n", computed);
             std::println("=============-------------==============");
-            fail_count +=1;
+            fail_count += 1;
         }
     }
-    if(fail_count != 0 ){
+    if (fail_count != 0) {
         std::println("FAILED {}/{} times", fail_count, total_count);
         EXPECT_TRUE(fail_count == 0);
     }
@@ -80,15 +79,18 @@ TEST_P(RandomizedControl, WithControlFunc) {
 
 const auto all_implementations = Values( //
     black_scholes,                       //
-    black_scholes_alt,                  //
-    black_scholes_numerical_approx_N,   //
-    black_scholes_fast_math              //
-    // black_scholes_pipelined              //
+    black_scholes_alt,                   //
+    black_scholes_numerical_approx_N,    //
+    black_scholes_fast_math,             //
+    black_scholes_pipelined,             //
+    black_scholes_simd_oriented          //
 );
 
 const auto fast_implementations = Values( //
     black_scholes_numerical_approx_N,     // spread is accurate up to 1e-12
-    black_scholes_fast_math              //
+    black_scholes_fast_math,              //
+    black_scholes_pipelined,              //
+    black_scholes_simd_oriented           //
 );
 
 INSTANTIATE_TEST_SUITE_P(Bs1, TestRealValues, all_implementations);
