@@ -11,7 +11,18 @@ using std::numbers::log2e;
 using std::numbers::pi;
 using std::numbers::sqrt2;
 constexpr double sqrt_2pi = 2.5066282746310002;
+constexpr double inv_sqrt_2pi = 1. / sqrt_2pi;
+using std::numbers::ln10;
+using std::numbers::ln2;
 
+constexpr uint64_t double_sign_bit = 0x8000000000000000;
+constexpr uint64_t double_exponent_bits = 0x7ff0000000000000;
+constexpr uint64_t double_mantissa_bits = 0x000fffffffffffff;
+// f32: 1bit, 8bits, 23bits
+union double_as_uint {
+    double _float;
+    uint64_t _int;
+};
 namespace fm {
 
 constexpr double p2(double x) { return x * x; }
@@ -26,14 +37,14 @@ constexpr double exp(double x) { return std::exp(x); }
 // constexpr double exp(double x) { return std::exp(x); }
 
 
-// Newton-Halley method
-inline double ln_fracs(double x) {
-    constexpr int elements = 2; // converges insanely fast
-    double yn = x;
-    double yn1 = 0;
-    for (int i = 0; i < elements; i += 1) {
-        yn1 = yn + 2 *(x-fm::exp(yn))/(x+fm::exp(yn));
-        yn = yn1;
+constexpr double ln_newton_halley(double x);
+constexpr double ln_newton_halley_fast(double x); // not any faster than st:ln
+constexpr double ln_power_of_2(double x);         // Fast generalist implem
+constexpr double ln_mercator(double x);           // Domain specific optimization
+constexpr double ln_sqrt2(double x);              // Just a test, but works lol
+constexpr double ln_sqrt2_twice(double x);        // This actually dumb
+constexpr double ln(double x) { return ln_mercator(x); }
+constexpr double ln_std(double x) { return std::log(x); }
     }
     return yn1;
 }
@@ -195,24 +206,89 @@ constexpr double fm_ldexp(double x, int n) {
     // if negative we use the property a^{-n} = 1/(a^{n})
     return x / ((double)(1ull << (-n)));
 };
+/* ----------- LN functions ----------- */
+
+// Converges very fast, but is too slow and depends on exp
+// https://en.wikipedia.org/wiki/Natural_logarithm#High_precision
+constexpr double ln_newton_halley(double x) {
+    constexpr int elements = 2; // converges insanely fast
+    double yn = x;
+    double yn1 = 0;
+    for (int i = 0; i < elements; ++i) {
+        yn1 = yn + 2 * (x - fm::exp(yn)) / (x + fm::exp(yn));
+        yn = yn1;
     }
-    return ( sum / (x + b0_0));
+    return yn1;
 }
 
-/* ----------- Misc ----------- */
-
-// Shore's inverse phi
-constexpr double inverse_phi_shore(double x) {
-    if (x < 0.5) return -inverse_phi_shore(1 - x);
-    return 1 / 5.5556 * (1 - std::pow(((1 - x) / x), 0.1186));
+constexpr double ln_newton_halley_fast(double x) {
+    double yn1 = x + 2 * (x - fm::exp(x)) / (x + fm::exp(x));
+    return yn1 + 2 * (x - fm::exp(yn1)) / (x + fm::exp(yn1));
 }
 
+// This implementation plays on te fact that S/K shouldn't be very big
+// And as such reducing the rage of ln may not even be needed
+// Precision is yet to be measured, however, its clearly faster than its bigger
+// brother right after
+// https://en.wikipedia.org/wiki/Mercator_series
+constexpr double ln_mercator(double a) {
+    a -= 1;
+    return a - 0.5 * pow_si(a, 2) + 0.3333333333333333 * pow_si(a, 3) -
+           0.25 * pow_si(a, 4) + 0.2 * pow_si(a, 5);
+}
 
-constexpr double pow_i(double val, uint16_t exponent) {
-    double sum = val;
-    for (uint16_t e = 1; e < exponent; ++e)
-        sum *= val;
-    return sum;
+// This should be a lot more precise for large numbers from the previous
+// approximation however, it doesn't seem needed (CS major eyes lol™)
+// https://en.wikipedia.org/wiki/Natural_logarithm#Natural_logarithm_of_10
+// https://math.stackexchange.com/questions/3381629/what-is-the-fastest-algorithm-for-finding-the-natural-logarithm-of-a-big-number
+// ln(a * 2n) = ln(a) + n * ln(2)
+constexpr double ln_power_of_2(double x) {
+    double_as_uint du = {._float = x};
+
+    static constexpr int64_t _10bits = 0x3ffuLL; // (2^p)-1
+
+    // This operation shifts away the mantissa, and to get the base 10
+    // exponent by subbing the exponent bias from the result (1023 for doubles)
+    // https://en.wikipedia.org/wiki/Floating-point_arithmetic#Internal_representation
+    // Also not out the sign bit
+    const int64_t extracted_exponent = ((du._int & double_exponent_bits) >> 52) - 1023;
+
+    // Then to factor the mantissa out we zero-out non-mantissa bits
+    int64_t factor_mantissa_out = du._int & double_mantissa_bits;
+    // And we set the mantissa to be 1023, such that we have 2^0
+    // https://en.wikipedia.org/wiki/Double-precision_floating-point_format#Exponent_encoding
+    du._int = factor_mantissa_out | (_10bits << 52);
+
+    const double a = du._float - 1.0;
+
+    // Mercator series for ln(a), with only one factor no more factors not really required
+    // for the precision I want
+    const double ln_a = a - 0.5 * pow_si(a, 2);
+
+    // Solve the new equation
+    return ln_a + extracted_exponent * ln2;
+}
+
+// Because x is so small and we have a pretty fast sqrt approximation
+// using the property ln(x) = 2 * ln(sqrt(x)
+// We can compute ln_a with a shorter mercator series
+// Stems from the same reason that ln_mercator() works as is, S/K should be small
+constexpr double ln_sqrt2(double x) {
+    const double a = fm::sqrt(x) - 1.0;
+
+    // Mercator series for ln(a), more factors not really required for the precision I
+    // want
+    const double ln_a = a - 0.5 * pow_si(a, 2) + 0.3333333333333333 * pow_si(a, 3);
+
+    // Solve the new equation
+    return 2 * ln_a;
+}
+
+// This is so dumb (kinda works™)
+// Same thing as the last one, but no mercator
+// Stems from the same reason that ln_mercator() works as is, S/K should be small
+// https://math.stackexchange.com/questions/3381629/what-is-the-fastest-algorithm-for-finding-the-natural-logarithm-of-a-big-number
+constexpr double ln_sqrt2_twice(double x) { return 4 * (fm::sqrt(fm::sqrt(x)) - 1.0); }
 }
 
 } // namespace fm
