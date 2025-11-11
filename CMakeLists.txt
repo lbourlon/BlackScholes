@@ -7,13 +7,6 @@ endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# set(CMAKE_C_COMPILER "gcc-14")
-# set(CMAKE_CXX_COMPILER "g++-14")
-
-# set(CMAKE_C_COMPILER "clang-18")
-# set(CMAKE_CXX_COMPILER "clang++-18")
-
-
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_program(CCACHE_FOUND ccache)
@@ -23,13 +16,11 @@ endif()
 
 set(CMAKE_TLS_VERIFY TRUE)
 set(CMAKE_BUILD_TYPE Release)
-
 project(BlackScholes)
 
-add_subdirectory(black_scholes)
+add_subdirectory(src)
 
 include(FetchContent)
-
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
@@ -58,6 +49,5 @@ FetchContent_MakeAvailable(benchmark)
 
 option(BUILD_TESTING "Build the tests" ON)
 if (${BUILD_TESTING})
-   add_subdirectory(ut)
-   add_subdirectory(bm)
+   add_subdirectory(tests)
 endif()

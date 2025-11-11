@@ -2,7 +2,7 @@
 
 A fast implementation of the black scholes algorithm in C++
 
-## Build
+## Build & run
 
 ```bash
 cmake -B build/
@@ -12,7 +12,7 @@ cmake --build build
 ## Run
 
 ```bash
-./build/blackscholes
+./build/src/bs
 ```
 
 ## The Black Scholes Model
